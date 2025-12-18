@@ -1,0 +1,110 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks: [app-network]
+
+  users_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: users_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - users_db_data:/var/lib/postgresql/data
+    networks: [app-network]
+
+  orders_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: orders_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - orders_db_data:/var/lib/postgresql/data
+    networks: [app-network]
+
+  reviews_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reviews_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - reviews_db_data:/var/lib/postgresql/data
+    networks: [app-network]
+
+  api_gateway:
+    build: api_gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+    networks: [app-network]
+    depends_on:
+      - service_users
+      - service_orders
+      - service_reviews
+
+  service_users:
+    build: service_users
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - DB_HOST=users_db
+      - DB_PORT=5432
+      - DB_NAME=users_db
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks: [app-network]
+    depends_on:
+      - users_db
+      - redis
+
+  service_orders:
+    build: service_orders
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - DB_HOST=orders_db
+      - DB_PORT=5432
+      - DB_NAME=orders_db
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks: [app-network]
+    depends_on:
+      - orders_db
+      - redis
+
+  service_reviews:
+    build: service_reviews
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - DB_HOST=reviews_db
+      - DB_PORT=5432
+      - DB_NAME=reviews_db
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ORDERS_SERVICE_URL=http://service_orders:8000
+    networks: [app-network]
+    depends_on:
+      - reviews_db
+      - redis
+      - service_orders
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  users_db_data:
+  orders_db_data:
+  reviews_db_data:
